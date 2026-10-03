@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fuel route map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { height: 100%; margin: 0; font-family: sans-serif; }
+    #summary { padding: 10px 16px; background: #1f2937; color: #fff; }
+    #summary b { margin-right: 18px; }
+    #map { height: calc(100% - 40px); }
+    .error { padding: 24px; color: #b91c1c; }
+  </style>
+</head>
+<body>
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% else %}
+  <div id="summary">
+    <b>{{ plan.start.name }} to {{ plan.finish.name }}</b>
+    <b>{{ plan.distance_miles }} miles</b>
+    <b>{{ plan.fuel_stops|length }} fuel stops</b>
+    <b>{{ plan.total_gallons }} gallons</b>
+    <b>Total fuel cost ${{ plan.total_cost|floatformat:2 }}</b>
+  </div>
+  <div id="map"></div>
+
+  {# The plan is handed to the script below as JSON, safely escaped. #}
+  {{ plan|json_script:"plan" }}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const plan = JSON.parse(document.getElementById("plan").textContent);
+    const map = L.map("map");
+
+    // The map pictures come from OpenStreetMap, loaded by the browser.
+    // OpenStreetMap refuses a request that does not say which site it comes
+    // from, and Django tells the browser not to say. referrerPolicy turns
+    // it back on for these pictures only.
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      referrerPolicy: "strict-origin-when-cross-origin",
+    }).addTo(map);
+
+    // The route line. Leaflet reads the GeoJSON [lon, lat] order itself.
+    const line = L.geoJSON(plan.route, {style: {color: "#2563eb", weight: 4}});
+    line.addTo(map);
+    map.fitBounds(line.getBounds(), {padding: [30, 30]});
+
+    L.marker([plan.start.lat, plan.start.lon]).addTo(map)
+      .bindPopup("Start: " + plan.start.name);
+    L.marker([plan.finish.lat, plan.finish.lon]).addTo(map)
+      .bindPopup("Finish: " + plan.finish.name);
+
+    // One red dot for each fuel stop, numbered in the order they are reached.
+    plan.fuel_stops.forEach(function (stop, index) {
+      const dot = L.circleMarker([stop.lat, stop.lon], {
+        radius: 8, color: "#b91c1c", fillColor: "#ef4444", fillOpacity: 0.9,
+      });
+      dot.addTo(map).bindPopup(
+        "<b>Stop " + (index + 1) + ": " + stop.name + "</b><br>" +
+        stop.city + ", " + stop.state + "<br>" +
+        "Mile " + stop.route_mile + "<br>" +
+        "$" + stop.price + " per gallon<br>" +
+        stop.gallons + " gallons, $" + stop.cost.toFixed(2)
+      );
+    });
+  </script>
+{% endif %}
+</body>
+</html>
