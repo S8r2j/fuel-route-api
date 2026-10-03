@@ -7,4 +7,4 @@ venv/
 env/
 .DS_Store
 .idea/
-.vscode/
+.vscode/data/*.zip
