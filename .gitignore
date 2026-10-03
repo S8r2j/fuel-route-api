@@ -8,3 +8,5 @@ env/
 .DS_Store
 .idea/
 .vscode/data/*.zip
+.vscode/
+data/*.zip
